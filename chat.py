@@ -156,6 +156,9 @@ class Chat(object):
     # Account objects, indexed by the Account's ID
     accounts = dict()
 
+    # Account object of the current user
+    account = None
+
     def __init__(self, irc):
         self.irc = irc
         self.channels = []
@@ -199,7 +202,15 @@ class Chat(object):
         # kato_account is the account of this user
         # see get_account_info in KatoHttpClient
         def account_info_success(kato_account):
-            self._add_kato_account(kato_account)
+            # register account
+            # cannot set the nickname here because the user may not have given
+            # the nickname to the server yet
+            account = self._add_kato_account(kato_account, self.irc.nickname)
+
+            # this account is for the current user, so register it specially
+            self.account = account
+
+            # process memberships
             for kato_membership in kato_account.memberships:
                 d_org_members = self.kato.get_organization_members(kato_membership.org_id)
                 d_org_members.addCallbacks(org_members_success, error)
@@ -294,8 +305,17 @@ class Chat(object):
         return defer.maybeDeferred(synchronous)
 
     # adds/updates a kato account
-    def _add_kato_account(self, kato_account):
-        self.accounts[kato_account.id] = Account(kato_account)
+    # updates only affect the kato_account object of the account
+    def _add_kato_account(self, kato_account, nickname=None):
+        if kato_account.id in self.accounts:
+            # update existing account
+            existing = self.accounts[kato_account.id]
+            existing.kato_account = kato_account
+        else:
+            # new account
+            self.accounts[kato_account.id] = Account(kato_account, nickname)
+
+        return self.accounts[kato_account.id]
 
     # adds/updates a kato room
     def _add_kato_room(self, kato_room):
