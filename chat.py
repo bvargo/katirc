@@ -340,6 +340,7 @@ class Chat(object):
                     self.kato.enter_room(channel.kato_room)
                     if channel.defer_create:
                         channel.defer_create(channel)
+                        channel.defer_create = None
                     break
         else:
             # channel does not exist yet; create it
