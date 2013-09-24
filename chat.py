@@ -151,13 +151,14 @@ class Chat(object):
     kato = None
 
     # list of Channel objects
-    channels = []
+    channels = None
 
     # Account objects, indexed by the Account's ID
     accounts = dict()
 
     def __init__(self, irc):
         self.irc = irc
+        self.channels = []
 
     # returns True/False depending on whether this chat connection is
     # connected to kato
