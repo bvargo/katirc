@@ -365,7 +365,7 @@ class Chat(object):
                 # channel already exists
                 if channel.joined:
                     # already in the channel; do nothing
-                    if defer:
+                    if defer and channel.kato_room:
                         defer.callback(channel)
                     break
                 else:
