@@ -6,6 +6,7 @@ import os
 import json
 from math import ceil
 import random
+from urllib import quote
 
 import twisted.internet
 from twisted.internet import reactor, defer, protocol
@@ -74,14 +75,20 @@ class KatoAccount(object):
         self.status = status
         self.memberships = memberships
 
+    def __repr__(self):
+        return "KatoAccount{id='%s', name='%s', email='', status='', memberships=}" % \
+            (self.id, self.name, self.email, self.status, self.memberships)
 
     @classmethod
     def from_json(cls, message):
-        return KatoAccount(message.id,
-                message.name,
-                message.email,
-                message.status,
-                KatoAccountMembership.from_json(message.memberships))
+        memberships = []
+        for membership in message["memberships"]:
+            memberships.append(KatoAccountMembership.from_json(membership))
+        return KatoAccount(message["id"],
+                message["name"],
+                message["email"],
+                message["status"],
+                memberships)
 
 class KatoAccountMembership(object):
     # ID of the organization in which the account is a member
@@ -98,9 +105,13 @@ class KatoAccountMembership(object):
         self.org_name = org_name
         self.role = role
 
+    def __repr__(self):
+        return "KatoAccountMembership{org_id='%s', org_name='%s', role=''}" % \
+            (self.org_id, self.name, self.role)
+
     @classmethod
     def from_json(cls, message):
-        return KatoAccountMembership(message.org_id, message.org_name, message.role)
+        return KatoAccountMembership(message["org_id"], message["org_name"], message["role"])
 
 class KatoRoom(object):
     # ID of the room
@@ -127,17 +138,24 @@ class KatoRoom(object):
         self.org_id = org_id
         self.created_ts = created_ts
 
+    def __repr__(self):
+        return "KatoRoom{id='%s', type='%s', name='%s', org_id='%s', created_ts=%s}" % \
+            (self.id, self.type, self.name, self.org_id, self.created_ts)
+
     @classmethod
     def from_json(cls, message):
-        return KatoRoom(message.id,
-                message.type,
-                message.name,
-                message.org_id,
-                message.created_ts)
+        return KatoRoom(message["id"],
+                message["type"],
+                message["name"],
+                message["organization_id"],
+                message["created_ts"])
 
 
 # http client for Kato
 class KatoHttpClient(object):
+    # whether debugging is enabled
+    debug = False
+
     # session ID and key for the Kato connection
     # initialize using login or useExistingSession
     session_id = ""
@@ -166,15 +184,14 @@ class KatoHttpClient(object):
     # logs into Kato using the provided email address and password
     # returns a defer that fires when the user is logged in, or errors when
     # the user could not be logged in
+    # TODO: make stuff work
     def login(self, email, password):
         url = KATO_API_BASE_URL + "/sessions/" + self._create_session_id()
         data = dict()
         data["email"] = email
         data["password"] = password
 
-        #d = self._httpRequest("PUT", url, json.dumps(data))
-        # XXX
-        d = self._httpRequest("GET", "https://bvargo.net/miner/")
+        d = self._httpRequest("PUT", url, json.dumps(data))
 
         def process_login_response(response):
             cookies = response.headers.getRawHeaders("Set-Cookie")
@@ -190,8 +207,16 @@ class KatoHttpClient(object):
 
     # creates a session ID using the same algorithm that Kato uses
     def _create_session_id(self):
+        return self._create_id(8)
+
+    # creates a message ID using the same algorithm that Kato uses
+    def _create_message_id(self):
+        return self._create_id(2)
+
+    # ID generation
+    def _create_id(self, byte_size):
         result = []
-        for i in range(0, 8):
+        for i in range(0, byte_size):
             result.append(hex(int(ceil((0xffffffff * random.random()))))[2:])
         return ''.join(result)
 
@@ -220,8 +245,8 @@ class KatoHttpClient(object):
             factory = KatoWebsocketFactory(KATO_API_WS_URL,
                     self,
                     cookie = cookie,
-                    debug = debug,
-                    debugCodePaths = debug,
+                    debug = self.debug,
+                    debugCodePaths = self.debug,
                     origin = KATO_API_ORIGIN)
             connectWS(factory)
             return None
@@ -247,8 +272,6 @@ class KatoHttpClient(object):
     def websocket_opened(self, websocket):
         print "Websocket opened."
         self.websocket = websocket
-        # XXX
-        websocket.sendMessage('{"room_id":"7bcb1e41eaa8ac0cf6048e4c69e2f605cf324374d155556960921037100c644","type":"hello"}')
 
         # fire initialization deferred, if present
         if self.initialize_deferred:
@@ -285,7 +308,7 @@ class KatoHttpClient(object):
 
     # returns the account ID, given a session ID, via a deferred
     def get_account_id(self, session_id):
-        url = KATO_API_BASE_URL + "/sessions/" + session_id
+        url = KATO_API_BASE_URL + "/sessions/" + quote(session_id)
         # returns:
         # {
         #     "id":"<SESSION_ID>",
@@ -306,9 +329,9 @@ class KatoHttpClient(object):
     # returns KatoAccount instance via a deferred
     def get_account_info(self, account_id=None):
         if not account_id:
-            account_id = self.accountId
+            account_id = self.account_id
 
-        url = KATO_API_BASE_URL + "/accounts/" + account_id
+        url = KATO_API_BASE_URL + "/accounts/" + quote(account_id)
         # returns
         # {
         #     "id":"<ACCOUNT_ID>",
@@ -337,7 +360,7 @@ class KatoHttpClient(object):
     # organization ID to list of KatoAccount objects for everyone in the
     # organization EXCEPT for the current user
     def get_organization_members(self, org_id):
-        url = KATO_API_BASE_URL + "/organizations/" + org_id + "/account"
+        url = KATO_API_BASE_URL + "/organizations/" + quote(org_id) + "/accounts"
         # returns
         # [
         #     {
@@ -375,7 +398,7 @@ class KatoHttpClient(object):
     # note that does does NOT include private conversations, which have the ID
     # of <ORG_ID>-<ACCOUNT_ID>
     def get_rooms(self, org_id):
-        url = KATO_API_BASE_URL + "/organizations/" + org_id + "/forums"
+        url = KATO_API_BASE_URL + "/organizations/" + quote(org_id) + "/forums"
         # returns
         # [
         #     {
@@ -402,11 +425,63 @@ class KatoHttpClient(object):
         d.addCallback(process_response)
         return d
 
+    # enters a KatoRoom
+    def enter_room(self, room):
+        hello = dict()
+        hello["type"] = "hello"
+        hello["room_id"] = room.id
+        self.websocket.sendJson(hello);
+
+    # leaves a room
+    # TODO
+    def leave_room(self, room):
+        pass
+
+    # sends the given message to the given KatoRoom
+    #
+    # messages look like this:
+    # {
+    #     "room_id":"<ROOM_ID>",
+    #     "type":"text",
+    #     "params":{
+    #         "data":{"id":"<ID(2)>"},
+    #         "text":"<MESSAGE_TEXT>",
+    #         "mentions":[],
+    #         "mentioned_everybody":false
+    #     }
+    # }
+    def send_message(self, room, message):
+        data = dict()
+        data["id"] = str(self._create_message_id())
+
+        params = dict()
+        params["data"] = data
+        params["text"] = message
+        # TODO
+        params["mentions"] = []
+        params["mentioned_everybody"] = False
+
+        msg = dict()
+        msg["type"] = "text"
+        msg["room_id"] = room.id
+        msg["params"] = params
+
+        self.websocket.sendJson(msg);
+
+    # sends a private message to the given KatoAccount
+    # TODO
+    def send_private_message(self, account, message):
+        pass
+
     # like _httpRequest, but also adds a json attribute to the response object
     def _httpRequestJson(self, method, url, body=None, headers={}):
         d = self._httpRequest(method, url, body, headers)
 
         def process_response(response):
+            if not response.content:
+                raise ValueError("No response to URL: %s" % (url))
+            else:
+                print "Response to %s: %s" % (url, response.content)
             response.json = json.loads(response.content)
             return response
         d.addCallback(process_response)
@@ -417,6 +492,9 @@ class KatoHttpClient(object):
     # the response will have an additional attribute, content, containing the
     # received content
     def _httpRequest(self, method, url, body=None, headers=None):
+        # convert to bytes, if needed
+        url = str(url)
+
         # add session information as the cookie
         if not headers:
             headers = dict()
@@ -461,9 +539,6 @@ class KatoWebsocket(WebSocketClientProtocol):
         # notify the client that the websocket opened
         self.factory.kato_client.websocket_opened(self)
 
-        # TODO
-        #self.sendMessage('{"room_id":"7bcb1e41eaa8ac0cf6048e4c69e2f605cf324374d155556960921037100c644","type":"hello"}')
-
     def onClose(self, wasClean, code, reason):
         # notify the client that the websocket closed
         self.factory.kato_client.websocket_closed(self,
@@ -476,6 +551,12 @@ class KatoWebsocket(WebSocketClientProtocol):
         self.factory.kato_client.websocket_message(self,
                 message,
                 binary = binary)
+
+    # message is an object that should be JSON serialized and sent to the
+    # server
+    def sendJson(self, message):
+        j = json.dumps(message)
+        self.sendMessage(j)
 
     # override startHanshake so that we can add the cookie header and fix the
     # origin
@@ -585,205 +666,6 @@ class KatoWebsocketFactory(ReconnectingClientFactory, WebSocketClientFactory):
     def clientConnectionFailed(self, connector, reason):
         print 'Connection failed. Reason:', reason
         ReconnectingClientFactory.clientConnectionFailed(self, connector, reason)
-
-
-# object that receives and acts upon messages from the Kato client
-class KatoMessageReceiver(object):
-    # TODO
-    #def kato_ANNOUNCE(self, message):
-    #    pass
-
-    # check message; used to check the status of the client for a given group
-    # usual check sequence:
-    #
-    # server sends check message
-    # {
-    #     "ts":1379271141415,
-    #     "type":"check",
-    #     "group_id":"<GROUP_ID>"
-    # }
-    #
-    # client responds
-    # note that the tz_offset is positive for some reason
-    # {
-    #     "group_id":"<GROUP_ID>",
-    #     "type":"presence",
-    #     "params":{
-    #         "status":"(online|away)",
-    #         "tz_offset":<TZ_OFFSET>,
-    #         "capabilities":[]
-    #     }
-    # }
-    #
-    # server responds with a presence message for the current account
-    # see kato_PRESENCE
-    # TODO
-    #def kato_CHECK(self, message):
-    #    pass
-
-    # keep alive message used to check connection status
-    # sent every 5 seconds from the client to the server, and the server
-    # responses
-    #
-    # client sends
-    # {"type":"keep_alive"}
-    #
-    # server responds
-    # {"ts":1379270870453,"type":"keep_alive"}
-    # TODO
-    #def kato_KEEP_ALIVE(self, message):
-    #    pass
-
-    # TODO
-    #def kato_OFF_RECORD(self, message):
-    #    pass
-
-    # TODO
-    #def kato_OMITTED(self, message):
-    #    pass
-
-    # TODO
-    #def kato_ON_RECORD(self, message):
-    #    pass
-
-    # used to indicate presence of an account, including the current user
-    # see kato_CHECK
-    #
-    # server sends
-    # {
-    #     "ts":1379271141455,
-    #     "type":"presence",
-    #     "from":{
-    #         "id":"<ACCOUNT_ID>",
-    #         "status":"(verified_email|unverified_email)",
-    #         "email":"<EMAIL_ADDRESS>",
-    #         "name":"<ACCOUNT_NAME>"
-    #     },
-    #     "group_id":"<GROUP_ID>",
-    #     "params":{
-    #         "status":"(online|away)",
-    #         "tz_offset":<TZ_OFFSET>,
-    #         "capabilities":[]
-    #     }
-    # }
-    # TODO
-    #def kato_PRESENCE(self, message):
-    #    pass
-
-    # indicates that a given message has been read
-    #
-    # server sends
-    # {
-    #     "ts":1379272428497,
-    #     "type":"read",
-    #     "from":{
-    #         "id":"<ACCOUNT_ID>",
-    #         "status":"(verified_email|unverified_email)",
-    #         "email":"<EMAIL_ADDRESS>",
-    #         "name":"<NAME>"
-    #     },
-    #     "room_id":"<ROOM_ID>",
-    #     "params":{
-    #         "last_ts":1379272416000,
-    #         "seq":17,
-    #         "diff":0,
-    #         "mentioned":false
-    #     }
-    # }
-    # TODO
-    #def kato_READ(self, message):
-    #    pass
-
-    # TODO
-    #def kato_RTC_SIGNAL(self, message):
-    #    pass
-
-    # TODO
-    #def kato_RTC_START(self, message):
-    #    pass
-
-    # TODO
-    #def kato_RTC_STOP(self, message):
-    #    pass
-
-    # TODO
-    #def kato_SILENCE(self, message):
-    #    pass
-
-    # a text message
-    # {
-    #     "ts":1379214315159,
-    #     "type":"text",
-    #     "from":{
-    #         "id":"<ACCOUNT_ID>",
-    #         "status":"(verified_email|unverified_email)",
-    #         "email":"<EMAIL_ADDRESS>",
-    #         "name":"<NAME>"
-    #     },
-    #     # for a chat room, room_id is a hex string
-    #     # for a private message, the lower account ID comes first, followed by the higher accountID
-    #     "room_id":"<ROOM_ID>|<<ACCOUNT_ID>-<ACCOUNT_ID>",
-    #     "params":{
-    #         "data":{
-    #             "id":"25d837dc23fb2e1c",
-    #             # key not provided if no mentions
-    #             "mention_names":{
-    #                 "<ACCOUNT_ID>":"<ACCOUNT_NAME>"
-    #             }
-    #         },
-    #         # if a mention, @<NAME> replaced with @<ACCOUNT_ID> in the body
-    #         "text":"<MESSAGE_CONTENTS>",
-    #         "mentions":["<ACCOUNT_ID>"],
-    #         "mentions":[],
-    #         "mentioned_everybody":false
-    #     },
-    #     "seq":1
-    # }
-    # TODO
-    #def kato_TEXT(self, message):
-    #    pass
-
-    # used to indicate that a user is typing in a given room
-    # {
-    #     # room_id can be in either chat room or private message format
-    #     "room_id": "<ROOM_ID>",
-    #     "from": {
-    #         "name": "<NAME>",
-    #         "email": "<EMAIL_ADDRESS>",
-    #         "status": "(verified_email|unverified_email)",
-    #         "id": "<ACCOUNT_ID>"
-    #     },
-    #     "type": "typing",
-    #     "ts": 1379214313294
-    # }
-    # TODO
-    #def kato_TYPING(self, message):
-    #    pass
-
-    # used to indicate that a user is no longer typing in a given room
-    # this message is only sent if a user does not send a message
-    # {
-    #     # room_id can be in either chat room or private message format
-    #     "room_id": "<ROOM_ID>",
-    #     "from": {
-    #         "name": "<NAME>",
-    #         "email": "<EMAIL_ADDRESS>",
-    #         "status": "(verified_email|unverified_email)",
-    #         "id": "<ACCOUNT_ID>"
-    #     },
-    #     "type": "reset_typing",
-    #     "ts": 1379306032396
-    # }
-    #def kato_RESET_TYPING(self, message):
-    #    pass
-
-    # unknown type of message
-    def kato_unknown(self, message):
-        print "Received unknown message:"
-        import pprint
-        pp = pprint.PrettyPrinter(indent=4)
-        pp.pprint(message)
-
 
 if __name__ == '__main__':
     log.startLogging(sys.stdout)

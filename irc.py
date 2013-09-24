@@ -2,6 +2,8 @@ from twisted.internet import defer, protocol
 from twisted.words.protocols import irc
 from twisted.python import log
 
+from chat import Chat, KatoMessageReceiver
+
 # protcol instance representing a single IRC connection to this server by a
 # single user that is mapped to a Kato session
 class IRCConnection(irc.IRC):
@@ -11,9 +13,15 @@ class IRCConnection(irc.IRC):
     # encoding used to communicate with the client
     encoding = "utf-8"
 
-    # nickname/password provided by the user
+    # nickserv user, for system messages
+    NICKSERV = 'NickServ!NickServ@services'
+
+    # nickname provided by the user
     nickname = None
-    password = None
+
+    # chat connection
+    # initialized in __init__
+    chat = None
 
     # MOTD
     _motdMessages = [
@@ -38,6 +46,9 @@ class IRCConnection(irc.IRC):
                 hostname + " 0.1 w n")
             ]
 
+    def __init__(self):
+        self.chat = Chat(self)
+
     #
     # twisted callbacks
     #
@@ -60,6 +71,9 @@ class IRCConnection(irc.IRC):
             kwargs["prefix"] = self.hostname
         if "to" not in kwargs:
             kwargs["to"] = self.nickname.encode(self.encoding)
+
+        # DEBUG
+        print "Sending message", command, kwargs["to"], args, kwargs
         irc.IRC.sendMessage(self, command, kwargs["to"], *args, **kwargs)
 
     # modifications:
@@ -128,20 +142,19 @@ class IRCConnection(irc.IRC):
     #            PASS secretpasswordhere
     #
     def irc_PASS(self, prefix, params):
-        if self.password:
-            # password already set; cannot reset
+        if self.chat.is_connected():
+            # password already set, since we have a kato connection; cannot reset
             self.sendMessage(irc.ERR_ALREADYREGISTRED,
-                    ":Unauthorized command (already registered)")
+                    ":Unauthorized command (already connected)")
         else:
             if len(params) != 1:
                 # no password given, or too many passwords
                 self.sendMessage(irc.ERR_NEEDMOREPARAMS,
                         "PASS :Not enough parameters")
             else:
-                # set the password
-                # TODO: dispatch call to client to create Kato client using
-                # given credentials
-                self.password = params[0]
+                # login to kato
+                password = params[0]
+                self.chat.init_kato(password)
 
     #
     # 3.1.2 Nick message
@@ -184,15 +197,17 @@ class IRCConnection(irc.IRC):
 
         self.nickname = nickname
 
-        # helpful message if the password is not set
-        # TODO: check Kato client instead, assuming that the PASS command
-        # creates the client, so that the password is not stored in memory
-        if not self.password:
-            self.privmsg(NICKSERV,
-                    nickname,
-                    "Please setup your client to send your Kato " +
-                    "username/password as your IRC password.")
-            return
+        # XXX: race condition between login and this method
+        #if not self.chat.is_connected():
+        #    self.privmsg(self.NICKSERV,
+        #            nickname,
+        #            "Please setup your client to send your Kato " +
+        #            "username/password as your IRC password.")
+        #    return
+
+        # TODO: do not send these messages until after Kato has initialized
+        # then join messages and such should come in after the room
+        # information has been fetched from Kato
 
         # send MOTD
         for code, text in self._motdMessages:
@@ -518,9 +533,28 @@ class IRCConnection(irc.IRC):
     #    :WiZ!jto@tolsun.oulu.fi JOIN #Twilight_zone ; JOIN message from WiZ
     #                                    on channel #Twilight_zone
     #
+    def irc_JOIN(self, prefix, params):
+        # TODO: better error handling
+        if len(params) == 0:
+            return
 
-    # def irc_JOIN(self, prefix, params):
-        # TODO
+        if params[0] == "0":
+            # TODO: leave all
+            return
+
+        channels = params[0].split(",")
+        for channel in channels:
+            def joined(ch):
+                self.sendMessage(irc.RPL_TOPIC,
+                        channel + " :" + ch.kato_room.name)
+
+            def error(failure):
+                self.sendMessage(irc.ERR_UNAVAILRESOURCE,
+                        channel + " :Channel is temporarily unavailable")
+
+            d = defer.Deferred()
+            d.addCallbacks(joined, error)
+            self.chat.join_channel(channel, defer=d)
 
     #
     # 3.2.2 Part message
@@ -920,9 +954,25 @@ class IRCConnection(irc.IRC):
     #                                    a host which has a name matching
     #                                    *.edu.
     #
+    # TODO: better error handling around lack of wild cards
+    # TODO: better error handlign
+    def irc_PRIVMSG(self, prefix, params):
+        # TODO: better error handling
+        if len(params) != 2:
+            return
 
-    # def irc_PRIVMSG(self, prefix, params):
-        # TODO
+        irc_channel = params[0]
+        message = params[1]
+
+        def channel_found(channel):
+            self.chat.send_message(channel, message)
+
+        def error(failure):
+            # TODO
+            print "Could not find channel", + irc_channel, failure
+
+        d = self.chat.find_channel_from_ircname(irc_channel)
+        d.addCallbacks(channel_found, error)
 
     #
     # 3.3.2 Notice
