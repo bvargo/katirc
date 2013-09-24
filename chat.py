@@ -95,7 +95,9 @@ class Account(object):
     def __init__(self, kato_account, nickname=None):
         self.kato_account = kato_account
 
-        if nickname is None:
+        if nickname:
+            self.nickname = nickname
+        else:
             self.nickname = Account.create_nickname(kato_account)
 
     def __repr__(self):
