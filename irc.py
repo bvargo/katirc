@@ -205,7 +205,7 @@ class IRCConnection(irc.IRC):
         #            "username/password as your IRC password.")
         #    return
 
-        # TODO: do not send these messages until after Kato has initialized
+        # TODO: do not send motd and welcom until after Kato has initialized
         # then join messages and such should come in after the room
         # information has been fetched from Kato
 
@@ -533,6 +533,7 @@ class IRCConnection(irc.IRC):
     #    :WiZ!jto@tolsun.oulu.fi JOIN #Twilight_zone ; JOIN message from WiZ
     #                                    on channel #Twilight_zone
     #
+    # TODO: handling of join messages for other users
     def irc_JOIN(self, prefix, params):
         # TODO: better error handling
         if len(params) == 0:
