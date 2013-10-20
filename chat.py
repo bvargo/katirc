@@ -243,6 +243,10 @@ class Chat(object):
         if account.kato_account.id == self.kato.account_id:
             return
 
+        # skip messages from channels that have not been joined
+        if not channel.joined:
+            return
+
         self.irc.privmsg(account.irc_ident(), channel.irc_channel, message)
 
         # TODO: send read event?
@@ -385,6 +389,17 @@ class Chat(object):
             channel.defer_create = defer
             print "New channel", channel
             self.channels.append(channel)
+
+    # leave an IRC channel
+    def leave_channel(self, irc_channel):
+        print "Leaving", irc_channel
+        for channel in self.channels:
+            if channel.irc_channel == irc_channel:
+                print "Leaving channel", channel
+                channel.joined = False
+                self.kato.leave_room(channel.kato_room)
+
+        # left the room or room was not found; send the part message
 
 # object that receives and acts upon messages from the Kato client
 # kato_<MESSAGE_TYPE> will be called with the message

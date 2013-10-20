@@ -433,8 +433,9 @@ class KatoHttpClient(object):
         self.websocket.sendJson(hello);
 
     # leaves a room
-    # TODO
     def leave_room(self, room):
+        # so we don't actually know if this is possible
+        # pretend we left the room and did nothing?
         pass
 
     # sends the given message to the given KatoRoom

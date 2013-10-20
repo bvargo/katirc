@@ -602,9 +602,20 @@ class IRCConnection(irc.IRC):
     #                                    "#playzone" with the message "I
     #                                    lost".
     #
+    def irc_PART(self, prefix, params):
+        if len(params) == 0:
+            self.sendMessage(irc.ERR_ALREADYREGISTRED,
+                    ":Needs more parameters")
 
-    # def irc_PART(self, prefix, params):
-        # TODO
+        # ignore part message
+
+        channel_names = params[0].split(",")
+        for channel_name in channel_names:
+            # leave the room
+            self.chat.leave_channel(channel_name)
+
+            # send part message
+            self.part(self.chat.account.irc_ident(), channel_name)
 
     #
     # 3.2.3 Channel mode message
