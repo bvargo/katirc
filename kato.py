@@ -556,6 +556,7 @@ class KatoWebsocket(WebSocketClientProtocol):
     # server
     def sendJson(self, message):
         j = json.dumps(message)
+        print "SENDING JSON TO KATO:", j
         self.sendMessage(j)
 
     # override startHanshake so that we can add the cookie header and fix the

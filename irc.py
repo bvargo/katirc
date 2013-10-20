@@ -142,6 +142,8 @@ class IRCConnection(irc.IRC):
     #            PASS secretpasswordhere
     #
     def irc_PASS(self, prefix, params):
+        print "CURRENT NICKNAME IS", self.nickname
+
         if self.chat.is_connected():
             # password already set, since we have a kato connection; cannot reset
             self.sendMessage(irc.ERR_ALREADYREGISTRED,
@@ -970,7 +972,7 @@ class IRCConnection(irc.IRC):
 
         def error(failure):
             # TODO
-            print "Could not find channel", + irc_channel, failure
+            print "Could not find channel", irc_channel, failure
 
         d = self.chat.find_channel_from_ircname(irc_channel)
         d.addCallbacks(channel_found, error)

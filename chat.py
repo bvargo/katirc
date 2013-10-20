@@ -33,6 +33,7 @@ class Channel(object):
     defer_create = None
 
     def __init__(self, irc_channel, kato_room):
+        print "--- Create channel called with", irc_channel, kato_room
         if not irc_channel and not kato_room:
             raise ValueError("Must provide IRC channel or Kato room")
 
@@ -339,6 +340,7 @@ class Chat(object):
                     channel.kato_room = kato_room
                     self.kato.enter_room(channel.kato_room)
                     if channel.defer_create:
+                        print "About to call defer create on", channel.defer_create
                         channel.defer_create(channel)
                         channel.defer_create = None
                     break
@@ -360,8 +362,10 @@ class Chat(object):
     # logged in)
     # TODO: create new rooms, as needed
     def join_channel(self, irc_channel, defer=None):
+        print "Joining", irc_channel, "in current channels:", self.channels
         for channel in self.channels:
             if channel.irc_channel == irc_channel:
+                print "Found channel", channel
                 # channel already exists
                 if channel.joined:
                     # already in the channel; do nothing
@@ -379,6 +383,7 @@ class Chat(object):
             # channel does not exist yet; create it
             channel = Channel(irc_channel, None)
             channel.defer_create = defer
+            print "New channel", channel
             self.channels.append(channel)
 
 # object that receives and acts upon messages from the Kato client
