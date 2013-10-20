@@ -52,8 +52,14 @@ class Channel(object):
         return "Channel{irc_channel='%s', kato_room='%s', joined=%s}" % \
             (self.irc_channel, self.kato_room, self.joined)
 
-    # create a channel name from a kato room name
-    #
+    # create a channel name from a kato room
+    @classmethod
+    def create_channel_name(cls, kato_room):
+        if kato_room.type == "support_front":
+            return "#kato_support"
+
+        return cls.normalize_channel_name(kato_room.name)
+
     # according to the IRC spec, channels must begin with a '&', '#', '+' or
     # '!'. Other than that, they must be at most 50 characters, and must not
     # contain a space, control G (ASCII 7), or a comma. The names themselves
@@ -69,11 +75,7 @@ class Channel(object):
     # support room
     # TODO: check for uniqueness, and augment somehow
     @classmethod
-    def create_channel_name(cls, kato_room):
-        if kato_room.type == "support_front":
-            return "#kato_support"
-
-        name = kato_room.name
+    def normalize_channel_name(cls, name):
         name = name.lower()
         name = SPACES.sub('_', name)
         name = CHANNEL_NAME_DISALLOWED.sub('', name)
@@ -103,7 +105,11 @@ class Account(object):
             (self.nickname, self.kato_account)
 
     # create a nickname from a kato account name
-    #
+    @classmethod
+    def create_nickname(cls, kato_account):
+        name = kato_account.name
+        return cls.normalize_nickname(name)
+
     # according to the IRC spec, nick names follow the rule must be of length
     # 9 or shorter, begin with a letter or special character, and consist only
     # of letters, digits, ecpail characters, and a -
@@ -120,8 +126,7 @@ class Account(object):
     #
     # TODO: check for uniqueness, and augment somehow
     @classmethod
-    def create_nickname(cls, kato_account):
-        name = kato_account.name
+    def normalize_nickname(cls, name):
         name = name.lower()
         name = SPACES.sub('_', name)
         name = NICKNAME_DISALLOWED.sub('', name)
