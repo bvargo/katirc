@@ -66,7 +66,7 @@ class KatoAccount(object):
     status = ""
 
     # list of KatoAccountMembership objects
-    memberships = []
+    memberships = None
 
     def __init__(self, id, name, email, status, memberships):
         self.id = id
