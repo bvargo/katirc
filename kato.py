@@ -468,9 +468,10 @@ class KatoHttpClient(object):
 
     # leaves a room
     def leave_room(self, room):
-        # so we don't actually know if this is possible
-        # pretend we left the room and did nothing?
-        pass
+        bye = dict()
+        bye["type"] = "bye"
+        bye["room_id"] = room.id
+        self.websocket.sendJson(bye);
 
     # sends the given message to the given KatoRoom
     #
