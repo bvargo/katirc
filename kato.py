@@ -76,7 +76,7 @@ class KatoAccount(object):
         self.memberships = memberships
 
     def __repr__(self):
-        return "KatoAccount{id='%s', name='%s', email='', status='', memberships=}" % \
+        return "KatoAccount{id='%s', name='%s', email='%s', status='%s', memberships=%s}" % \
             (self.id, self.name, self.email, self.status, self.memberships)
 
     @classmethod
@@ -106,8 +106,8 @@ class KatoAccountMembership(object):
         self.role = role
 
     def __repr__(self):
-        return "KatoAccountMembership{org_id='%s', org_name='%s', role=''}" % \
-            (self.org_id, self.name, self.role)
+        return "KatoAccountMembership{org_id='%s', org_name='%s', role='%s'}" % \
+            (self.org_id, self.org_name, self.role)
 
     @classmethod
     def from_json(cls, message):
