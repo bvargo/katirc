@@ -545,19 +545,28 @@ class IRCConnection(irc.IRC):
             # TODO: leave all
             return
 
-        channels = params[0].split(",")
-        for channel in channels:
-            def joined(ch):
-                self.sendMessage(irc.RPL_TOPIC,
-                        channel + " :" + ch.kato_room.name)
+        channel_names = params[0].split(",")
+        for channel_name in channel_names:
+            def joined(channel):
+                # send the join message
+                self.join(self.chat.account.irc_ident(), channel_name)
+
+                # send the topic
+                self.topic(self.nickname, channel_name, channel.kato_room.name)
+
+                # send the users in the channel
+                # for Kato, this is everyone
+                self.names(self.nickname,
+                        channel_name,
+                        [account.nickname for id, account in self.chat.accounts.iteritems()])
 
             def error(failure):
                 self.sendMessage(irc.ERR_UNAVAILRESOURCE,
-                        channel + " :Channel is temporarily unavailable")
+                        channel_name + " :Channel is temporarily unavailable")
 
             d = defer.Deferred()
             d.addCallbacks(joined, error)
-            self.chat.join_channel(channel, defer=d)
+            self.chat.join_channel(channel_name, defer=d)
 
     #
     # 3.2.2 Part message
