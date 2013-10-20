@@ -158,13 +158,14 @@ class Chat(object):
     channels = None
 
     # Account objects, indexed by the Account's ID
-    accounts = dict()
+    accounts = None
 
     # Account object of the current user
     account = None
 
     def __init__(self, irc):
         self.irc = irc
+        self.accounts = dict()
         self.channels = []
 
     # returns True/False depending on whether this chat connection is
