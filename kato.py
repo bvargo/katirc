@@ -544,6 +544,13 @@ class KatoHttpClient(object):
                 StringProducer(body) if body else None)
 
         def handle_response(response):
+            # response has the following fields:
+            # - version (http version)
+            # - code (http response code)
+            # - phrase (phrase associated with http response code)
+            # - headers (response headers)
+            # - content (added below)
+
             if response.code == 204:
                 # no content
                 response.content = ""
