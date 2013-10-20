@@ -8,8 +8,8 @@ from math import ceil
 import random
 from urllib import quote
 
-import twisted.internet
 from twisted.internet import reactor, defer, protocol
+from twisted.internet.error import ConnectionDone
 from twisted.internet.protocol import ReconnectingClientFactory
 from twisted.python import log
 from twisted.web.client import Agent
@@ -703,8 +703,13 @@ class KatoWebsocketFactory(ReconnectingClientFactory, WebSocketClientFactory):
         print connector
 
     def clientConnectionLost(self, connector, reason):
-        print 'Lost connection. Reason:', reason
-        ReconnectingClientFactory.clientConnectionLost(self, connector, reason)
+        try:
+            reason.trap(ConnectionDone)
+            # clean connection close; do nothing
+        except:
+            # not a clean connection close; reconnect
+            print 'Lost connection. Reason:', reason
+            ReconnectingClientFactory.clientConnectionLost(self, connector, reason)
 
     def clientConnectionFailed(self, connector, reason):
         print 'Connection failed. Reason:', reason
