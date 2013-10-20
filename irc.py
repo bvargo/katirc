@@ -1,3 +1,5 @@
+import socket
+
 from twisted.internet import defer, protocol
 from twisted.words.protocols import irc
 from twisted.python import log
@@ -7,8 +9,9 @@ from chat import Chat, KatoMessageReceiver
 # protcol instance representing a single IRC connection to this server by a
 # single user that is mapped to a Kato session
 class IRCConnection(irc.IRC):
-    # "hostname" of the current server
-    hostname = "katirc"
+    # hostname of the current server
+    # initiated on connection
+    hostname = socket.getfqdn()
 
     # encoding used to communicate with the client
     encoding = "utf-8"
