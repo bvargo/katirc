@@ -149,13 +149,13 @@ class IRCConnection(irc.IRC):
             self.sendMessage(irc.ERR_ALREADYREGISTRED,
                     ":Unauthorized command (already connected)")
         else:
-            if len(params) != 1:
-                # no password given, or too many passwords
+            if len(params) == 0:
+                # no password given
                 self.sendMessage(irc.ERR_NEEDMOREPARAMS,
                         "PASS :Not enough parameters")
             else:
                 # login to kato
-                password = params[0]
+                password = " ".join(params)
                 self.chat.init_kato(password)
 
     #

@@ -170,20 +170,31 @@ class Chat(object):
         return self.kato != None
 
     # initializes a Kato connection
-    # token should be an email / password combination, separated by a space,
-    # or a session ID / session key, also separated by a space
-    # session IDs are in hex, so it is possible to distinguish from an email address
+    # token should be an email / password combination, separated by a space
     # on error, a message will be provided to the user from the system user,
-    # rather than returning an error via this function
+    # rather than returning an error via this function, and the connection
+    # will be dropped
     def init_kato(self, token):
         self.kato = None
         kato = KatoHttpClient(KatoMessageReceiver(self))
-        d_login = kato.login_with_session("session_id", "session_key")
 
-        def error(failure):
+        parts = token.split(" ", 1)
+        if len(parts) != 2:
+            self.receive_system_message("Whoops, your IRC password was not " +
+                    "valid. Please send your Kato username (your email " +
+                    "address) and your Kato password, separated by a space, " +
+                    "as your IRC password.")
+            self.disconnect()
+            return
+
+        email, password = parts
+        d_login = kato.login(email, password)
+
+        def error(failure=None):
             self.kato = None
             self.receive_system_message("Darn, we could not connect to Kato.")
-            print failure
+            self.receive_system_message("Please check your username/password.")
+            self.disconnect()
 
         # organization members result
         # account_list is a list of KatoAccount objects

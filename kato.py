@@ -184,19 +184,38 @@ class KatoHttpClient(object):
     # logs into Kato using the provided email address and password
     # returns a defer that fires when the user is logged in, or errors when
     # the user could not be logged in
-    # TODO: make stuff work
     def login(self, email, password):
-        url = KATO_API_BASE_URL + "/sessions/" + self._create_session_id()
+        self.session_id = self._create_session_id()
+
+        url = KATO_API_BASE_URL + "/sessions/" + self.session_id
         data = dict()
         data["email"] = email
         data["password"] = password
 
-        d = self._httpRequest("PUT", url, json.dumps(data))
+        headers = dict()
+        headers["Content-Type"] = ["application/json"]
+        d = self._httpRequest("PUT", url, json.dumps(data), headers=headers)
 
         def process_login_response(response):
-            cookies = response.headers.getRawHeaders("Set-Cookie")
-            # TODO: parse cookie
-            print "response headers", response.headers
+            # find and set the session key from the cookies
+            cookies = response.headers.getRawHeaders("set-cookie")
+            self.session_key = None
+
+            if cookies:
+                for cookie in cookies:
+                    # at least one cookie should look like this:
+                    # session_key=a9a7da00-3be0-11ed-a444-bc764e10c2df; Version=1; Expires=Tue, 19-Nov-2013 19:15:53 GMT; Max-Age=2592000; Domain=.api.kato.im; Path=/; Secure; HttpOnly
+                    cookie_parts = cookie.split(";")
+                    for cookie_part in cookie_parts:
+                        cookie_part = cookie_part.strip()
+                        parts = cookie_part.split("=");
+                        if len(parts) == 2:
+                            key, value = parts
+                            if key == "session_key":
+                                self.session_key = value
+
+            if not self.session_key:
+                raise ValueError("Could not login to Kato")
 
             # nothing to return to the caller
             return None
@@ -229,7 +248,7 @@ class KatoHttpClient(object):
 
     # called after the session ID and key have been set to complete the login
     # returns a deferred that fires when complete
-    def _initialize(self):
+    def _initialize(self, ignored=None):
         self.initialize_deferred = defer.Deferred()
 
         d_account = self.get_account_id(self.session_id)
