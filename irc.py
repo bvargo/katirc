@@ -1654,9 +1654,8 @@ class IRCConnection(irc.IRC):
     #    PING :irc.funet.fi              ; Ping message sent by server
     #                                    "irc.funet.fi"
     #
-
-    # def irc_PING(self, prefix, params):
-        # TODO
+    def irc_PING(self, prefix, params):
+        self.sendMessage("PONG", self.hostname)
 
     #
     # 3.7.3 Pong message
