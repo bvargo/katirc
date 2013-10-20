@@ -266,6 +266,20 @@ class KatoHttpClient(object):
         # fired in websocket_opened or fired with error in websocket_closed
         return self.initialize_deferred
 
+    # logs out of kato
+    # returns a deferred that fires when complete
+    def logout(self):
+        # close websocket connection
+        if self.websocket:
+            self.websocket.dropConnection()
+            self.websocket = None
+
+        # DELETE on the sessions resource to logout
+        url = KATO_API_BASE_URL + "/sessions/" + self.session_id
+        d = self._httpRequest("DELETE", url)
+
+        return d
+
     #
     # websocket callbacks
     #
@@ -280,6 +294,7 @@ class KatoHttpClient(object):
             d.callback(None)
 
     def websocket_closed(self, websocket, wasClean, code, reason):
+        # TODO: handle websocket closed not during login
         print "Websocket closed."
         self.websocket = None
 

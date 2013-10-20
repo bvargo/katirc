@@ -233,6 +233,25 @@ class Chat(object):
 
         d_login.addCallbacks(login_success, error)
 
+    # disconnects
+    # can be called either from a user-initiated disconnect or a lost Kato
+    # connection
+    def disconnect(self):
+        def loggedout(ignored=None):
+            print "Closing transport"
+            self.irc.transport.loseConnection()
+        def handle_error(failure):
+            # failed to logout; kill the IRC connection anyways
+            print "Failed to close Kato connection."
+            self.irc.transport.loseConnection()
+
+        # logout of kato
+        if self.kato:
+            d = self.kato.logout()
+            d.addCallbacks(loggedout, handle_error)
+        else:
+            loggedout()
+
     # sends the given message to the given Channel
     def send_message(self, channel, message):
         self.kato.send_message(channel.kato_room, message)

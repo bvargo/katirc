@@ -57,7 +57,7 @@ class IRCConnection(irc.IRC):
         pass
 
     def connectionLost(self, reason):
-        pass
+        self.chat.disconnect()
 
     #
     # override protocol functions
@@ -411,9 +411,8 @@ class IRCConnection(irc.IRC):
     #    :syrk!kalt@millennium.stealth.net QUIT :Gone to have lunch ; User
     #                                    syrk has quit IRC to have lunch.
     #
-
-    # def irc_QUIT(self, prefix, params):
-        # TODO
+    def irc_QUIT(self, prefix, params):
+        self.chat.disconnect()
 
     #
     # 3.1.8 Squit
