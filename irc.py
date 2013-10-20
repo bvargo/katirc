@@ -557,10 +557,16 @@ class IRCConnection(irc.IRC):
                 self.topic(self.nickname, channel_name, channel.kato_room.name)
 
                 # send the users in the channel
-                # for Kato, this is everyone
-                self.names(self.nickname,
-                        channel_name,
-                        [account.nickname for id, account in self.chat.accounts.iteritems()])
+                # for Kato, this is everyone in the organization
+                nicknames = []
+                for id, account in self.chat.accounts.iteritems():
+                    print "Testing account:", account
+                    for membership in account.kato_account.memberships:
+                        if membership.org_id == channel.kato_room.org_id:
+                            print "Adding member:", account.nickname
+                            nicknames.append(account.nickname)
+
+                self.names(self.nickname, channel_name, nicknames)
 
             def error(failure):
                 self.sendMessage(irc.ERR_UNAVAILRESOURCE,
