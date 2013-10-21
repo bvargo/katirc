@@ -5,9 +5,9 @@ from twisted.internet import defer
 from kato import KatoHttpClient
 
 # characters that are disallowed from the channel name
-CHANNEL_NAME_DISALLOWED = re.compile('[^a-zA-Z0-9_-]+', re.UNICODE)
+CHANNEL_NAME_DISALLOWED = re.compile(r"[^a-zA-Z0-9_-]+", re.UNICODE)
 # characters that are disallowed from the nick name
-NICKNAME_DISALLOWED = re.compile('[^a-zA-Z0-9_-]+', re.UNICODE)
+NICKNAME_DISALLOWED = re.compile(r"[^a-zA-Z0-9_-]+", re.UNICODE)
 # space handling regex
 SPACES = re.compile('[\s_]+', re.UNICODE)
 
