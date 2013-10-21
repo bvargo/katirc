@@ -482,11 +482,11 @@ class KatoHttpClient(object):
     #     "params":{
     #         "data":{"id":"<ID(2)>"},
     #         "text":"<MESSAGE_TEXT>",
-    #         "mentions":[],
+    #         "mentions":["<MENTIONED_USER_ID>"],
     #         "mentioned_everybody":false
     #     }
     # }
-    def send_message(self, room, message):
+    def send_message(self, room, message, mentions=[]):
         data = dict()
         data["id"] = str(self._create_message_id())
 
@@ -494,7 +494,7 @@ class KatoHttpClient(object):
         params["data"] = data
         params["text"] = message
         # TODO
-        params["mentions"] = []
+        params["mentions"] = list(mentions)
         params["mentioned_everybody"] = False
 
         msg = dict()

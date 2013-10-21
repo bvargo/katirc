@@ -269,7 +269,54 @@ class Chat(object):
 
     # sends the given message to the given Channel
     def send_message(self, channel, message):
-        self.kato.send_message(channel.kato_room, message)
+        message, mentions = self._process_irc_mentions(message)
+        self.kato.send_message(channel.kato_room, message, mentions)
+
+    # replaces IRC mentions with Kato mention text
+    # an IRC mention is defined as a nickname separated by whitespace, the
+    # nickname followed by a colon, or @nickname
+    # returns the modified message + a set of account IDs for everyone
+    # mentioned
+    def _process_irc_mentions(self, message):
+        mentions = set()
+
+        # TODO: limit accounts by those in the organization of the room
+        for id, account in self.accounts.iteritems():
+            position = 0
+            nickname_length = account.nickname
+            while True:
+                position = message.find(account.nickname, position)
+                next_char = position + len(account.nickname)
+
+                if position == -1:
+                    position = 0
+                    break
+
+                # before character
+                if position == 0:
+                    before_matches = True
+                else:
+                    m = NICKNAME_DISALLOWED.match(message[position - 1])
+                    before_matches = bool(m)
+                    # search for leading @, which we want to replace too, so
+                    # we don't get @@
+                    if message[position - 1] == "@":
+                        position -= 1
+
+                # after character
+                if next_char == len(message):
+                    after_matches = True
+                else:
+                    m = NICKNAME_DISALLOWED.match(message[next_char])
+                    after_matches = bool(m)
+
+                if before_matches and after_matches:
+                    message = "".join([message[:position], "@", id, message[next_char:]])
+                    mentions.add(id)
+                    # continue searching after the replaced ID + "@"
+                    position = position + 1 + len(id)
+
+        return message, mentions
 
     # receives a message in the given Channel from the given Account and sends it to the client
     def receive_message(self, channel, account, message):
@@ -281,9 +328,21 @@ class Chat(object):
         if not channel.joined:
             return
 
+        # convert Kato mentions to nicknames
+        message = self._process_kato_mentions(message)
+
         self.irc.privmsg(account.irc_ident(), channel.irc_channel, message)
 
         # TODO: send read event?
+
+    # replaces kato mentions with the IRC nickname of the account
+    # returns a modified message
+    def _process_kato_mentions(self, message):
+        # TODO: limit accounts by those in the organization of the room
+        for id, account in self.accounts.iteritems():
+            message = message.replace("@" + id, account.nickname)
+
+        return message
 
     # sends a private message to the given Account
     def send_private_message(self, account, message):
