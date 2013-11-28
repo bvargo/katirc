@@ -654,14 +654,20 @@ class KatoMessageReceiver(object):
     #     "seq":1
     # }
     def kato_TEXT(self, message):
-        def error(failure):
-            print "Error processing text received.", message, failure
-
         def channel_found(channel):
-            d = self.chat.find_account_from_katoid(message["from"]["id"])
+            account_id = message["from"]["id"]
+            d = self.chat.find_account_from_katoid(account_id)
 
             def sender_found(account):
-                # TODO: mentions in the text
+                self.chat.receive_message(channel, account, message["params"]["text"])
+
+            def sender_not_found(ignored):
+                kato_account = Kato_Account(account_id,
+                        message["from"]["name"],
+                        "", # no email
+                        message["from"]["status"],
+                        [])
+                account = Account(kato_account)
                 self.chat.receive_message(channel, account, message["params"]["text"])
 
             d.addCallbacks(sender_found, error)
