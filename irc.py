@@ -17,7 +17,7 @@ class IRCConnection(irc.IRC):
     encoding = "utf-8"
 
     # nickserv user, for system messages
-    NICKSERV = 'NickServ!NickServ@services'
+    SYSTEM_USER = 'root!root@services'
 
     # nickname provided by the user
     nickname = None
@@ -26,15 +26,8 @@ class IRCConnection(irc.IRC):
     # initialized in __init__
     chat = None
 
-    # MOTD
-    _motdMessages = [
-            (irc.RPL_MOTDSTART,
-                ":- " + hostname + " Message of the Day - "),
-            (irc.RPL_MOTD,
-                ":- Welcome to KatIRC!"),
-            (irc.RPL_ENDOFMOTD,
-                ":End of MOTD command")
-            ]
+    # whether the current IRC user has sent a password
+    sentPass = False
 
     # welcome messages; sent after nick
     _welcomeMessages = [
@@ -84,6 +77,40 @@ class IRCConnection(irc.IRC):
     def handleCommand(self, command, prefix, params):
         print "Received:", prefix, command, params
         irc.IRC.handleCommand(self, command, prefix, params)
+
+    #
+    # helpers
+    #
+
+    def sendMotd(self):
+        # creates a message for the motd
+        def msg(message):
+            return (irc.RPL_MOTD, ":- " + message)
+
+        # header
+        messages = [
+                (irc.RPL_MOTDSTART,
+                    ":- " + self.hostname + " Message of the Day - "),
+                msg("Welcome to KatIRC!"),
+                msg(""),
+                msg("This is an unofficial IRC server for Kato."),
+                msg("See https://github.com/bvargo/katirc/."),
+                msg(""),
+                ]
+
+        # list of available channels
+        messages.append(msg("Known Kato Rooms:"))
+        for channel in self.chat.channels:
+            messages.append(
+                    msg("  " + channel.irc_channel + ": " +
+                        channel.kato_room.name))
+
+        messages.append((irc.RPL_ENDOFMOTD,
+            ":End of MOTD command"))
+
+        # send messages
+        for code, text in messages:
+            self.sendMessage(code, text)
 
     #
     # IRC command handlers
@@ -145,7 +172,7 @@ class IRCConnection(irc.IRC):
     #            PASS secretpasswordhere
     #
     def irc_PASS(self, prefix, params):
-        print "CURRENT NICKNAME IS", self.nickname
+        self.sentPass = True
 
         if self.chat.is_connected():
             # password already set, since we have a kato connection; cannot reset
@@ -159,7 +186,22 @@ class IRCConnection(irc.IRC):
             else:
                 # login to kato
                 password = " ".join(params)
-                self.chat.init_kato(password)
+                d_login = self.chat.init_kato(password)
+
+                def login_success(ignored):
+                    # send MOTD
+                    self.sendMotd()
+
+                    # send welcome messages
+                    for code, text in self._welcomeMessages:
+                        self.sendMessage(code, text)
+
+                def login_error(error):
+                    # chat takes care of sending the appropriate error
+                    # messages
+                    print "Failure to authenticate for", self.nickname
+
+                d_login.addCallbacks(login_success, login_error)
 
     #
     # 3.1.2 Nick message
@@ -202,26 +244,12 @@ class IRCConnection(irc.IRC):
 
         self.nickname = nickname
 
-        # XXX: race condition between login and this method
-        #if not self.chat.is_connected():
-        #    self.privmsg(self.NICKSERV,
-        #            nickname,
-        #            "Please setup your client to send your Kato " +
-        #            "username/password as your IRC password.")
-        #    return
-
-        # TODO: do not send motd and welcome until after Kato has initialized
-        # then join messages and such should come in after the room
-        # information has been fetched from Kato
-
-        # send MOTD
-        for code, text in self._motdMessages:
-            self.sendMessage(code, text)
-
-        # send welcome messages
-        for code, text in self._welcomeMessages:
-            self.sendMessage(code, text)
-
+        if not self.sentPass:
+           self.privmsg(self.SYSTEM_USER,
+                   nickname,
+                   "Please setup your IRC client to send your Kato username " +
+                   "and password as your IRC password, separated by a space.")
+           self.transport.loseConnection()
 
     #
     # 3.1.3 User message

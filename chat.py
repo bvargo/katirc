@@ -182,6 +182,8 @@ class Chat(object):
         self.kato = None
         kato = KatoHttpClient(KatoMessageReceiver(self))
 
+        d_init = defer.Deferred()
+
         parts = token.split(" ", 1)
         if len(parts) != 2:
             self.receive_system_message("Whoops, your IRC password was not " +
@@ -189,16 +191,23 @@ class Chat(object):
                     "address) and your Kato password, separated by a space, " +
                     "as your IRC password.")
             self.disconnect()
-            return
+            d_init.errback(ValueError("Invalid token"))
+            return d_init
 
         email, password = parts
         d_login = kato.login(email, password)
 
+        # called once all data has been loaded correctly, including members,
+        # rooms, orgs, etc
+        def init_success():
+            d_init.callback(self)
+
         def error(failure=None):
             self.kato = None
-            self.receive_system_message("Darn, we could not connect to Kato.")
-            self.receive_system_message("Please check your username/password.")
+            self.receive_system_message("Darn, we could not connect to Kato. " +
+                    "Please check your username and password.")
             self.disconnect()
+            d_init.errback(failure)
 
         # organization members result
         # account_list is a list of KatoAccount objects
@@ -227,12 +236,21 @@ class Chat(object):
             self.account = account
 
             # process memberships
+            deferds = []
             for kato_membership in kato_account.memberships:
                 d_org_members = self.kato.get_organization_members(kato_membership.org_id)
                 d_org_members.addCallbacks(org_members_success, error)
+                deferds.append(d_org_members)
 
                 d_org_rooms = self.kato.get_rooms(kato_membership.org_id)
                 d_org_rooms.addCallbacks(rooms_success, error)
+                deferds.append(d_org_rooms)
+
+            # after all members and rooms have loaded, trigger
+            d_loaded = defer.gatherResults(deferds, consumeErrors=True)
+            def success(param=None):
+                init_success()
+            d_loaded.addCallbacks(success, error)
 
         # login succeeded
         # pre-fetch account information
@@ -247,6 +265,7 @@ class Chat(object):
             # XXX self.receive_message(Channel("#channel", None), Account("root", None), "Oh man, you connected!")
 
         d_login.addCallbacks(login_success, error)
+        return d_init
 
     # disconnects
     # can be called either from a user-initiated disconnect or a lost Kato
@@ -357,7 +376,7 @@ class Chat(object):
     # provides the client with a system message
     # this can be used to report error conditions
     def receive_system_message(self, message):
-        self.irc.privmsg(self.irc.NICKSERV,
+        self.irc.privmsg(self.irc.SYSTEM_USER,
             self.irc.nickname,
             message)
 
@@ -420,9 +439,6 @@ class Chat(object):
 
     # adds/updates a kato room
     def _add_kato_room(self, kato_room):
-        self.irc.privmsg(self.irc.NICKSERV,
-            self.irc.nickname,
-            "Hey oh, we got a kato room: " + kato_room.name)
         for channel in self.channels:
             if channel.kato_room:
                 # kato room is already set
