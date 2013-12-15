@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-
 import sys
 import base64
 import os
@@ -715,17 +713,3 @@ class KatoWebsocketFactory(ReconnectingClientFactory, WebSocketClientFactory):
     def clientConnectionFailed(self, connector, reason):
         print 'Connection failed. Reason:', reason
         ReconnectingClientFactory.clientConnectionFailed(self, connector, reason)
-
-if __name__ == '__main__':
-    log.startLogging(sys.stdout)
-
-    kato_client = KatoHttpClient(KatoMessageReceiver())
-    d = kato_client.login_with_session("session_id", "session_key")
-
-    def success(ignored):
-        print "Logged in!"
-    def error(failure):
-        print "Not logged in. Error."
-    d.addCallbacks(success, error)
-
-    reactor.run()
