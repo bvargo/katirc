@@ -1,6 +1,7 @@
 import re
 
 from twisted.internet import defer
+from twisted.python.failure import Failure
 
 from kato import KatoHttpClient
 
@@ -346,11 +347,21 @@ class Chat(object):
 
     # sends a private message to the given Account
     def send_private_message(self, account, message):
-        pass
+        message, mentions = self._process_irc_mentions(message)
+        self.kato.send_private_message(account.kato_account, message, mentions)
 
     # receives a private message from the given Account
     def receive_private_message(self, account, message):
-        pass
+        # skip messages sent by the current user
+        if account.kato_account.id == self.kato.account_id:
+            return
+
+        # convert Kato mentions to nicknames
+        message = self._process_kato_mentions(message)
+
+        self.irc.privmsg(account.irc_ident(), account.nickname, message)
+
+        # TODO: send read event?
 
     # provides the client with a system message
     # this can be used to report error conditions
@@ -389,8 +400,15 @@ class Chat(object):
     # returns an Account for the given IRC nickname, via a deferred
     # if the account is not valid, then an errback will be sent
     def find_account_from_ircnick(self, nickname):
-        # TODO
-        pass
+        def synchronous():
+            for id, account in self.accounts.iteritems():
+                if account.nickname == nickname:
+                    return account
+            else:
+                raise ValueError("Could not find account with IRC nick: " +
+                        nickname)
+
+        return defer.maybeDeferred(synchronous)
 
     # returns an Account for the given Kato account ID, via a deferred
     # if the account is not valid, then an errback will be sent
@@ -413,6 +431,9 @@ class Chat(object):
         else:
             # new account
             self.accounts[kato_account.id] = Account(kato_account, nickname)
+
+            # say hello, so that we can recieve and send messages
+            self.kato.hello_account(kato_account)
 
         return self.accounts[kato_account.id]
 
@@ -627,12 +648,17 @@ class KatoMessageReceiver(object):
     #     "seq":1
     # }
     def kato_TEXT(self, message):
+        #
+        # channel message
+        #
+
         def channel_found(channel):
             account_id = message["from"]["id"]
             d = self.chat.find_account_from_katoid(account_id)
 
             def sender_found(account):
-                self.chat.receive_message(channel, account, message["params"]["text"])
+                text = message["params"]["text"]
+                self.chat.receive_message(channel, account, text)
 
             def sender_not_found(ignored):
                 # cannot find the sender; fake it
@@ -654,9 +680,28 @@ class KatoMessageReceiver(object):
             # TODO: try to find the channel (if it's new), alert the user, etc
             print "Channel not found", error
 
-        # TODO: private message handling
-        d = self.chat.find_channel_from_katoid(message["room_id"]);
-        d.addCallbacks(channel_found, channel_not_found)
+        #
+        # private message
+        #
+
+        def priv_account_found(account):
+            text = message["params"]["text"]
+            self.chat.receive_private_message(account, text)
+
+        def priv_account_not_found(error):
+            # TODO: might be a new user; alert the user on failure
+            print "Account not found", error
+
+        room_id = message["room_id"]
+        if "-" in room_id:
+            # private message
+            account_id = message["from"]["id"]
+            d = self.chat.find_account_from_katoid(account_id)
+            d.addCallbacks(priv_account_found, priv_account_not_found)
+        else:
+            # channel message
+            d = self.chat.find_channel_from_katoid(room_id)
+            d.addCallbacks(channel_found, channel_not_found)
 
     # used to indicate that a user is typing in a given room
     # {

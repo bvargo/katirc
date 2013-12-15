@@ -588,10 +588,8 @@ class IRCConnection(irc.IRC):
                 # for Kato, this is everyone in the organization
                 nicknames = []
                 for id, account in self.chat.accounts.iteritems():
-                    print "Testing account:", account
                     for membership in account.kato_account.memberships:
                         if membership.org_id == channel.kato_room.org_id:
-                            print "Adding member:", account.nickname
                             nicknames.append(account.nickname)
 
                 self.names(self.nickname, channel_name, nicknames)
@@ -1029,15 +1027,36 @@ class IRCConnection(irc.IRC):
         irc_channel = params[0]
         message = params[1].decode("utf-8")
 
+        #
+        # channel message
+        #
+
         def channel_found(channel):
             self.chat.send_message(channel, message)
 
-        def error(failure):
+        def channel_not_found(failure):
             # TODO
             print "Could not find channel", irc_channel, failure
 
-        d = self.chat.find_channel_from_ircname(irc_channel)
-        d.addCallbacks(channel_found, error)
+        #
+        # private message
+        #
+
+        def priv_account_found(account):
+            self.chat.send_private_message(account, message)
+
+        def priv_account_not_found(failure):
+            # TODO
+            print "Could not find nick", irc_channel, failure
+
+        if irc_channel[0] == "#":
+            # channel message
+            d = self.chat.find_channel_from_ircname(irc_channel)
+            d.addCallbacks(channel_found, channel_not_found)
+        else:
+            # private message
+            d = self.chat.find_account_from_ircnick(irc_channel)
+            d.addCallbacks(priv_account_found, priv_account_not_found)
 
     #
     # 3.3.2 Notice

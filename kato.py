@@ -491,7 +491,6 @@ class KatoHttpClient(object):
         params = dict()
         params["data"] = data
         params["text"] = message
-        # TODO
         params["mentions"] = list(mentions)
         params["mentioned_everybody"] = False
 
@@ -502,10 +501,48 @@ class KatoHttpClient(object):
 
         self.websocket.sendJson(msg);
 
+    # sends a hello message to the given account
+    # this is like enter_room, but for accounts, and is required before being
+    # able to receive messages or send messages from/to the given account
+    # this should be called by the consumer for all known users at startup in
+    # order ot receive private messages
+    def hello_account(self, account):
+        hello = dict()
+        hello["type"] = "hello"
+        hello["room_id"] = self._privateRoomId(account)
+        self.websocket.sendJson(hello);
+
     # sends a private message to the given KatoAccount
-    # TODO
-    def send_private_message(self, account, message):
-        pass
+    #
+    # note that hello_account must have been called first on the account
+    #
+    # messages look like this:
+    # {
+    #     "room_id": "<ORG_ID>-<USER_ID>",
+    #     "type": "text",
+    #     "params": {
+    #         "data":{"id":"<ID(2)>"},
+    #         "text":"<MESSAGE_TEXT>",
+    #         "mentions":["<MENTIONED_USER_ID>"],
+    #         "mentioned_everybody":false
+    #     },
+    # }
+    def send_private_message(self, account, message, mentions=[]):
+        data = dict()
+        data["id"] = str(self._create_message_id())
+
+        params = dict()
+        params["data"] = data
+        params["text"] = message
+        params["mentions"] = list(mentions)
+        params["mentioned_everybody"] = False
+
+        msg = dict()
+        msg["type"] = "text"
+        msg["room_id"] = self._privateRoomId(account)
+        msg["params"] = params
+
+        self.websocket.sendJson(msg);
 
     # like _httpRequest, but also adds a json attribute to the response object
     def _httpRequestJson(self, method, url, body=None, headers={}):
@@ -520,6 +557,16 @@ class KatoHttpClient(object):
             return response
         d.addCallback(process_response)
         return d
+
+    # private room ID for communicating with the given account from the
+    # current account
+    def _privateRoomId(self, account):
+        id1 = account.id
+        id2 = self.account_id
+        if id2 < id1:
+            id1, id2 = id2, id1
+
+        return "%s-%s" % (id1, id2)
 
     # executes an HTTP request to the given URL, returning the response via a
     # deferred
