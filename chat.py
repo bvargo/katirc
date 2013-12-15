@@ -665,6 +665,11 @@ class KatoMessageReceiver(object):
                 self.chat.receive_message(channel, account, message["params"]["text"])
 
             def sender_not_found(ignored):
+                # cannot find the sender; fake it
+                # this happens when an integration of some kind (e.g. Github)
+                # sends a message; however, Kato doesn't give us permission to
+                # fetch Github's info from their servers, so we have to just
+                # pass the message along
                 kato_account = Kato_Account(account_id,
                         message["from"]["name"],
                         "", # no email
@@ -673,11 +678,15 @@ class KatoMessageReceiver(object):
                 account = Account(kato_account)
                 self.chat.receive_message(channel, account, message["params"]["text"])
 
-            d.addCallbacks(sender_found, error)
+            d.addCallbacks(sender_found, sender_not_found)
+
+        def channel_not_found(error):
+            # TODO: try to find the channel (if it's new), alert the user, etc
+            print "Channel not found", error
 
         # TODO: private message handling
         d = self.chat.find_channel_from_katoid(message["room_id"]);
-        d.addCallbacks(channel_found, error)
+        d.addCallbacks(channel_found, channel_not_found)
 
     # used to indicate that a user is typing in a given room
     # {
