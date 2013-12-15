@@ -612,7 +612,7 @@ class KatoHttpClient(object):
 
                     def connectionLost(self, reason):
                         # TODO: test for twisted.web.client.ResponseDone
-                        response.content = self.buffer
+                        response.content = self.buffer.decode("utf-8")
                         self.deferred.callback(response)
 
                 d = defer.Deferred()
