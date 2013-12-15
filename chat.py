@@ -62,6 +62,9 @@ class Channel(object):
         name = name.lower()
         name = SPACES.sub('_', name)
         name = CHANNEL_NAME_DISALLOWED.sub('', name)
+        # second pass, to remove double underscores if the original string
+        # were "a & b" -> "a__b" -> "a_b"
+        name = SPACES.sub('_', name)
         name = name.strip("_")
         name = name[:50]
         return "#" + name
@@ -113,6 +116,9 @@ class Account(object):
         name = name.lower()
         name = SPACES.sub('_', name)
         name = NICKNAME_DISALLOWED.sub('', name)
+        # second pass, to remove double underscores if the original string
+        # were "a & b" -> "a__b" -> "a_b"
+        name = SPACES.sub('_', name)
         name = name.strip("_")
         name = name[:50]
         return name
