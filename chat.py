@@ -186,9 +186,15 @@ class Chat(object):
             d_init.callback(self)
 
         def error(failure=None):
+            if failure and failure.check(ValueError):
+                self.receive_system_message("Darn, we could not connect to " +
+                    "Kato. Please check your username and password.")
+            else:
+                self.receive_system_message("Woah, something went wrong " +
+                    "when connecting to Kato. Whoops. Sorry about that.")
+
+            print "Unable to connect to Kato.", failure
             self.kato = None
-            self.receive_system_message("Darn, we could not connect to Kato. " +
-                    "Please check your username and password.")
             self.disconnect()
             d_init.errback(failure)
 
@@ -222,11 +228,11 @@ class Chat(object):
             deferds = []
             for kato_membership in kato_account.memberships:
                 d_org_members = self.kato.get_organization_members(kato_membership.org_id)
-                d_org_members.addCallbacks(org_members_success, error)
+                d_org_members.addCallbacks(org_members_success)
                 deferds.append(d_org_members)
 
                 d_org_rooms = self.kato.get_rooms(kato_membership.org_id)
-                d_org_rooms.addCallbacks(rooms_success, error)
+                d_org_rooms.addCallbacks(rooms_success)
                 deferds.append(d_org_rooms)
 
             # after all members and rooms have loaded, trigger
