@@ -1027,7 +1027,7 @@ class IRCConnection(irc.IRC):
             return
 
         irc_channel = params[0]
-        message = params[1]
+        message = params[1].decode("utf-8")
 
         def channel_found(channel):
             self.chat.send_message(channel, message)
