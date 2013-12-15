@@ -339,6 +339,8 @@ class Chat(object):
     # returns a modified message
     def _process_kato_mentions(self, message):
         # TODO: limit accounts by those in the organization of the room
+        # TODO: add detection of names, since Kato sometime doesn't do the
+        # mentions correctly (see @.:. Skylar .:.)
         for id, account in self.accounts.iteritems():
             message = message.replace("@" + id, account.nickname)
 
@@ -359,6 +361,7 @@ class Chat(object):
             self.irc.nickname,
             message)
 
+    # TODO: better error handling
     # returns a Channel object for the given IRC channel name, with prefix,
     # via a deferred
     # if the channel is not valid, then an errback will be sent

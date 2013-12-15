@@ -210,7 +210,7 @@ class IRCConnection(irc.IRC):
         #            "username/password as your IRC password.")
         #    return
 
-        # TODO: do not send motd and welcom until after Kato has initialized
+        # TODO: do not send motd and welcome until after Kato has initialized
         # then join messages and such should come in after the room
         # information has been fetched from Kato
 
@@ -985,8 +985,9 @@ class IRCConnection(irc.IRC):
     #                                    a host which has a name matching
     #                                    *.edu.
     #
-    # TODO: better error handling around lack of wild cards
-    # TODO: better error handlign
+    # TODO: better error handling
+    # - lack of wild cards
+    # - network failures
     def irc_PRIVMSG(self, prefix, params):
         # TODO: better error handling
         if len(params) != 2:
