@@ -22,30 +22,12 @@ class Channel(object):
     # whether the IRC user is in the channel
     joined = None
 
-    # Deferred that is fired when this channel is entered
-    # this only happens if the IRC client joined the channel before the Kato
-    # client told us about the room; otherwise, this logic is handled in
-    # join_channel
-    defer_create = None
+    def __init__(self, kato_room):
+        if not kato_room:
+            raise ValueError("Must provide Kato room")
 
-    def __init__(self, irc_channel, kato_room):
-        print "--- Create channel called with", irc_channel, kato_room
-        if not irc_channel and not kato_room:
-            raise ValueError("Must provide IRC channel or Kato room")
-
-        if irc_channel:
-            # if a channel name is provided, then the message came from the
-            # user, so we can say that the user has joined the channel
-            self.joined = True
-        else:
-            # if there is no irc channel name, then create one using the kato
-            # room information
-            # since the user has not joined this channel yet, then they have
-            # not joined
-            irc_channel = Channel.create_channel_name(kato_room)
-            self.joined = False
-
-        self.irc_channel = irc_channel
+        self.irc_channel = Channel.create_channel_name(kato_room)
+        self.joined = False
         self.kato_room = kato_room
 
     def __repr__(self):
@@ -261,9 +243,6 @@ class Chat(object):
             d_account = self.kato.get_account_info()
             d_account.addCallbacks(account_info_success, error)
 
-            # XXX self.receive_system_message("Oh man, you connected!")
-            # XXX self.receive_message(Channel("#channel", None), Account("root", None), "Oh man, you connected!")
-
         d_login.addCallbacks(login_success, error)
         return d_init
 
@@ -440,67 +419,42 @@ class Chat(object):
     # adds/updates a kato room
     def _add_kato_room(self, kato_room):
         for channel in self.channels:
-            if channel.kato_room:
-                # kato room is already set
-                # check for an update
-                if channel.kato_room.id == kato_room.id:
-                    # channel already added; update info
-                    channel.kato_room = kato_room
-                    break
-            else:
-                # kato room is not already set
-                # check to see if the user joined the channel already, but the
-                # room information was not available yet
-                # if this happens, enter the room
-                if channel.irc_channel == Channel.create_channel_name(kato_room):
-                    channel.kato_room = kato_room
-                    self.kato.enter_room(channel.kato_room)
-                    if channel.defer_create:
-                        print "About to call defer create on", channel.defer_create
-                        channel.defer_create(channel)
-                        channel.defer_create = None
-                    break
+            if channel.kato_room.id == kato_room.id:
+                # channel already added; update info
+                channel.kato_room = kato_room
+                break
         else:
             # channel does not exist yet; create it
-            channel = Channel(None, kato_room)
+            channel = Channel(kato_room)
             self.channels.append(channel)
 
     # indicates that the user has joined the given IRC channel
     #
-    # defer is an optional Deferred that takes the Channel as the argument
-    # this deferred will only be fired after the Kato room has been entered,
-    # and it may never fire (for now - FIXME)
-    #
-    # eventually the IRC client could find the Channel given the channel name,
-    # but there are lots of race conditions there during initial login, so
-    # this is easier for now
-    # TODO: handle non-cached case (someone made a new room while we were
-    # logged in)
-    # TODO: create new rooms, as needed
-    def join_channel(self, irc_channel, defer=None):
-        print "Joining", irc_channel, "in current channels:", self.channels
+    # returns a defer that fires with the Channel on success, or with an
+    # errback if the Kato Room could not be joined, either because it does not
+    # exist (ValueError) or for network reasons (other)
+    def join_channel(self, irc_channel):
+        d = defer.Deferred()
+
         for channel in self.channels:
             if channel.irc_channel == irc_channel:
-                print "Found channel", channel
                 # channel already exists
                 if channel.joined:
                     # already in the channel; do nothing
-                    if defer and channel.kato_room:
-                        defer.callback(channel)
+                    d.callback(channel)
                     break
                 else:
                     # not in the channel yet; enter the channel
                     self.kato.enter_room(channel.kato_room)
                     channel.joined = True
-                    if defer:
-                        defer.callback(channel)
+                    d.callback(channel)
                     break
         else:
-            # channel does not exist yet; create it
-            channel = Channel(irc_channel, None)
-            channel.defer_create = defer
-            print "New channel", channel
-            self.channels.append(channel)
+            # channel does not exist yet
+            d.errback(ValueError(irc_channel +
+                " does not correspond to a known Kato room."))
+
+        return d
 
     # leave an IRC channel
     def leave_channel(self, irc_channel):

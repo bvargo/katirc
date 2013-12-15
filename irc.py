@@ -597,12 +597,17 @@ class IRCConnection(irc.IRC):
                 self.names(self.nickname, channel_name, nicknames)
 
             def error(failure):
-                self.sendMessage(irc.ERR_UNAVAILRESOURCE,
-                        channel_name + " :Channel is temporarily unavailable")
+                value_error = failure.check(ValueError)
+                if value_error:
+                    self.sendMessage(irc.ERR_NOSUCHCHANNEL,
+                            channel_name + " :No such channel")
+                else:
+                    self.sendMessage(irc.ERR_UNAVAILRESOURCE,
+                            channel_name +
+                            " :Channel is temporarily unavailable")
 
-            d = defer.Deferred()
+            d = self.chat.join_channel(channel_name)
             d.addCallbacks(joined, error)
-            self.chat.join_channel(channel_name, defer=d)
 
     #
     # 3.2.2 Part message
