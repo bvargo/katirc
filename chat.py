@@ -680,7 +680,7 @@ class KatoMessageReceiver(object):
                 # sends a message; however, Kato doesn't give us permission to
                 # fetch Github's info from their servers, so we have to just
                 # pass the message along
-                kato_account = Kato_Account(account_id,
+                kato_account = KatoAccount(account_id,
                         message["from"]["name"],
                         "", # no email
                         message["from"]["status"],
