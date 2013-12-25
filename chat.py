@@ -294,7 +294,6 @@ class Chat(object):
         # TODO: limit accounts by those in the organization of the room
         for id, account in self.accounts.iteritems():
             position = 0
-            nickname_length = account.nickname
             while True:
                 position = message.find(account.nickname, position)
                 next_char = position + len(account.nickname)
@@ -326,6 +325,9 @@ class Chat(object):
                     mentions.add(id)
                     # continue searching after the replaced ID + "@"
                     position = position + 1 + len(id)
+                else:
+                    # nickname matched, but is part of a bigger word; skip
+                    position = next_char
 
         return message, mentions
 
