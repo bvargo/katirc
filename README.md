@@ -61,6 +61,11 @@ In Katō, you mention people with @User. In KatIRC, just use the IRC nick, like
 you would in any IRC channel. KatIRC automatically translates between Katō
 mentions and IRC nicknames, which most clients will treat as a mention.
 
+In order to prevent false matches, such as in URLs, the nickname must be
+proceeded by a space (or be the first word) and  must be followed by a
+punctuation character (or be the last word). In addition, a proceeding @
+character, e.g. @nick, is allowed, and will be converted automatically.
+
 @Everybody mentions are not supported at the moment.
 
 ## Missing Features

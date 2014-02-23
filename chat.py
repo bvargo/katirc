@@ -10,7 +10,7 @@ CHANNEL_NAME_DISALLOWED = re.compile(r"[^a-zA-Z0-9_-]+", re.UNICODE)
 # characters that are disallowed from the nick name
 NICKNAME_DISALLOWED = re.compile(r"[^a-zA-Z0-9_-]+", re.UNICODE)
 # space handling regex
-SPACES = re.compile('[\s_]+', re.UNICODE)
+SPACES = re.compile(r"[\s_]+", re.UNICODE)
 
 # IRC channel <--> Kato room object
 class Channel(object):
@@ -284,10 +284,13 @@ class Chat(object):
         self.kato.send_message(channel.kato_room, message, mentions)
 
     # replaces IRC mentions with Kato mention text
-    # an IRC mention is defined as a nickname separated by whitespace, the
-    # nickname followed by a colon, or @nickname
     # returns the modified message + a set of account IDs for everyone
     # mentioned
+    # an IRC mention is defined as follows:
+    # - mention is the first word, or is proceeded by whitespace
+    # - mention is the last word, or is followed by a character that is
+    #   disallowed in the nickname
+    # - the nickname itself may optionally be prepended by an @ character
     def _process_irc_mentions(self, message):
         mentions = set()
 
@@ -304,23 +307,25 @@ class Chat(object):
 
                 # before character
                 if position == 0:
-                    before_matches = True
+                    separated_before = True
                 else:
-                    m = NICKNAME_DISALLOWED.match(message[position - 1])
-                    before_matches = bool(m)
                     # search for leading @, which we want to replace too, so
-                    # we don't get @@
+                    # we don't get @@, since we prepend an @ below
                     if message[position - 1] == "@":
                         position -= 1
 
+                    # require a space before the nick
+                    m = SPACES.match(message[position - 1])
+                    separated_before = bool(m)
+
                 # after character
                 if next_char == len(message):
-                    after_matches = True
+                    separated_after = True
                 else:
                     m = NICKNAME_DISALLOWED.match(message[next_char])
-                    after_matches = bool(m)
+                    separated_after = bool(m)
 
-                if before_matches and after_matches:
+                if separated_before and separated_after:
                     message = "".join([message[:position], "@", id, message[next_char:]])
                     mentions.add(id)
                     # continue searching after the replaced ID + "@"
