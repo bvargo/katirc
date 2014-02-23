@@ -145,7 +145,7 @@ class KatoRoom(object):
         return KatoRoom(message["id"],
                 message["type"],
                 message["name"],
-                message["organization_id"],
+                message["organization_ids"][0],
                 message["created_ts"])
 
 
@@ -437,7 +437,7 @@ class KatoHttpClient(object):
         #         "created_ts": <MILLISECONDS_SINCE_EPOCH>,
         #         "type": (null | "support_front" | ...; usually null),
         #         "name": "<NAME_OF_ROOM>",
-        #         "organization_id": "<ORGANIZATION_OWNING_ROOM>",
+        #         "organization_ids": ["<ORGANIZATION_OWNING_ROOM>"],
         #         "id": "<ROOM_ID>"
         #     }
         # ]
