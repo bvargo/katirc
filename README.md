@@ -10,10 +10,17 @@ almost every day.
 
 ## Requirements
 
+Exact versions are documented in `requirements.txt` so they should
+only be a virtualenv and
+
+    pip install
+
+away. If installing manually, you'll need:
+
 - Python 2
 - [Twisted](http://www.twistedmatrix.com/). Ensure that twisted-words is
   included.
-- [AutoBahn](http://autobahn.ws/python/)
+- [AutoBahn 0.6.x](http://autobahn.ws/python/)
 
 ## Usage
 
