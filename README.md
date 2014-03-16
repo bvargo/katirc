@@ -20,7 +20,7 @@ away. If installing manually, you'll need:
 - Python 2
 - [Twisted](http://www.twistedmatrix.com/). Ensure that twisted-words is
   included.
-- [AutoBahn 0.6.x](http://autobahn.ws/python/)
+- [AutoBahn 0.5.x](http://autobahn.ws/python/)
 
 ## Usage
 
