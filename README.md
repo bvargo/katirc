@@ -10,12 +10,18 @@ almost every day.
 
 ## Requirements
 
-Exact versions are documented in `requirements.txt` so they should
-only be a virtualenv and
+Python 2 is required to run KatIRC. Exact versions of libraries are documented
+in [requirements.txt](requirements.txt). To install locally, use virtualenv and
+run `pip install -r requirements.txt`.
 
-    pip install
+On a Debian-based system, you will need the following packages to use
+virtualenv and pip to install locally:
 
-away. If installing manually, you'll need:
+- python-virtualenv
+- python-dev
+- libffi-dev (required for OpenSSL support)
+
+If installing manually without pip, you will need:
 
 - Python 2
 - [Twisted](http://www.twistedmatrix.com/). Ensure that twisted-words is
