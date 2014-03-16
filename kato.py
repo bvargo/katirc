@@ -419,7 +419,10 @@ class KatoHttpClient(object):
 
             accounts = []
             for entry in response.json:
-                accounts.append(KatoAccount.from_json(entry))
+                # email reservations are not yet an active account, so skip
+                # the entry
+                if "status" in entry and entry["status"] != "email_reservation":
+                    accounts.append(KatoAccount.from_json(entry))
             return accounts
 
         d.addCallback(process_response)
