@@ -4,6 +4,7 @@ from twisted.internet import defer
 from twisted.python.failure import Failure
 
 from kato import KatoHttpClient
+from util import *
 
 # characters that are disallowed from the channel name
 CHANNEL_NAME_DISALLOWED = re.compile(r"[^a-zA-Z0-9_-]+", re.UNICODE)
@@ -60,6 +61,7 @@ class Channel(object):
     @classmethod
     def normalize_channel_name(cls, name):
         name = name.lower()
+        name = strip_accents(name)
         name = SPACES.sub('_', name)
         name = CHANNEL_NAME_DISALLOWED.sub('', name)
         # second pass, to remove double underscores if the original string
@@ -114,6 +116,7 @@ class Account(object):
     @classmethod
     def normalize_nickname(cls, name):
         name = name.lower()
+        name = strip_accents(name)
         name = SPACES.sub('_', name)
         name = NICKNAME_DISALLOWED.sub('', name)
         # second pass, to remove double underscores if the original string
