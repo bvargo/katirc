@@ -617,9 +617,8 @@ class KatoMessageReceiver(object):
     #         "mentioned":false
     #     }
     # }
-    # TODO
-    #def kato_READ(self, message):
-    #    pass
+    def kato_READ(self, message):
+        pass
 
     # TODO
     #def kato_RTC_SIGNAL(self, message):
