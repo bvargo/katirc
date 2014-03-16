@@ -759,18 +759,22 @@ class KatoWebsocketFactory(ReconnectingClientFactory, WebSocketClientFactory):
         self.setProtocolOptions(version = 13)
 
     def startedConnecting(self, connector):
-        print 'Started to connect.'
-        print connector
+        pass
 
     def clientConnectionLost(self, connector, reason):
+        self.kato_client = None
+
         try:
             reason.trap(ConnectionDone)
             # clean connection close; do nothing
+            print 'Connection closed. Reason:', reason
         except:
             # not a clean connection close; reconnect
             print 'Lost connection. Reason:', reason
             ReconnectingClientFactory.clientConnectionLost(self, connector, reason)
 
     def clientConnectionFailed(self, connector, reason):
+        self.kato_client = None
+
         print 'Connection failed. Reason:', reason
         ReconnectingClientFactory.clientConnectionFailed(self, connector, reason)
