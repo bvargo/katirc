@@ -1,10 +1,13 @@
 import socket
 
-from twisted.internet import defer, protocol
+from twisted.internet import defer, protocol, task
 from twisted.words.protocols import irc
 from twisted.python import log
 
 from chat import Chat, KatoMessageReceiver
+
+# period, in seconds, for keep alive calls
+KEEP_ALIVE_PERIOD = 30
 
 # protcol instance representing a single IRC connection to this server by a
 # single user that is mapped to a Kato session
@@ -50,9 +53,12 @@ class IRCConnection(irc.IRC):
     #
 
     def connectionMade(self):
-        pass
+        self.keep_alive_timer = task.LoopingCall(self.keep_alive)
+        self.keep_alive_timer.start(KEEP_ALIVE_PERIOD)
 
     def connectionLost(self, reason):
+        if self.keep_alive_timer:
+            self.keep_alive_timer.stop()
         self.chat.disconnect()
 
     #
@@ -111,6 +117,19 @@ class IRCConnection(irc.IRC):
         # send messages
         for code, text in messages:
             self.sendMessage(code, text)
+
+    #
+    # Keep Alive
+    #
+
+    def keep_alive(self):
+        if self.chat and self.chat.is_connected():
+            # allow 3 keep alives as the timeout before we fail the connection
+            online = self.chat.keep_alive(KEEP_ALIVE_PERIOD * 3)
+            if not online:
+                # kato is not online - kill the connection, forcing the IRC
+                # user to reconnect
+                self.chat.disconnect()
 
     #
     # IRC command handlers

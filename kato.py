@@ -297,6 +297,12 @@ class KatoHttpClient(object):
 
         return d
 
+    # sends a keep alive message
+    # the message receiver will get a callback on a successful keep alive
+    def keep_alive(self):
+        if self.websocket:
+            self.websocket.send_keep_alive()
+
     #
     # websocket callbacks
     #
@@ -649,6 +655,11 @@ class KatoWebsocket(WebSocketClientProtocol):
         j = json.dumps(message)
         print "SENDING JSON TO KATO:", j
         self.sendMessage(j)
+
+    def send_keep_alive(self):
+        message = dict()
+        message["type"] = "keep_alive"
+        self.sendJson(message)
 
     # override startHanshake so that we can add the cookie header and fix the
     # origin

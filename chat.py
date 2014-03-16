@@ -1,4 +1,5 @@
 import re
+import os
 
 from twisted.internet import defer
 from twisted.python.failure import Failure
@@ -155,6 +156,12 @@ class Chat(object):
     # Account object of the current user
     account = None
 
+    # keep alive times
+    # units are seconds to an arbitrary point in the past, using os.times()[4]
+    # (real time)
+    last_keep_alive_sent = None
+    last_keep_alive_received = None
+
     def __init__(self, irc):
         self.irc = irc
         self.accounts = dict()
@@ -162,6 +169,7 @@ class Chat(object):
 
     # returns True/False depending on whether this chat connection is
     # connected to kato
+    # see also keep_alive, for keep the connection open
     def is_connected(self):
         return self.kato != None
 
@@ -280,6 +288,34 @@ class Chat(object):
             d.addCallbacks(loggedout, handle_error)
         else:
             loggedout()
+
+    # keep alive
+    # returns True if is_connected and the connection has successfully
+    # received a keep alive within keep_alive_timeout
+    # this requires that keep_alive is called on an interval shorter than
+    # keep_alive_timeout, leaving time for network overhead of making the keep
+    # alive call itself
+    def keep_alive(self, keep_alive_timeout):
+        if not self.is_connected():
+            return False
+
+        first_keep_alive = self.last_keep_alive_sent is None
+
+        self.kato.keep_alive()
+        self.last_keep_alive_sent = os.times()[4]
+
+        if first_keep_alive:
+            # assume that the connection is good, since we haven't had time to
+            # receive a keep alive response yet
+            return True
+        else:
+            # we should have received a keep alive - check that the keep alive
+            # has come back in time
+            secs_since_last_received = abs(self.last_keep_alive_received - \
+                    self.last_keep_alive_sent)
+            # allow us to go three keep alive checks before we say we are not
+            # connected
+            return secs_since_last_received < keep_alive_timeout
 
     # sends the given message to the given Channel
     def send_message(self, channel, message):
@@ -552,17 +588,16 @@ class KatoMessageReceiver(object):
     #    pass
 
     # keep alive message used to check connection status
-    # sent every 5 seconds from the client to the server, and the server
-    # responses
+    # the web client sends a keep alive message every 30 seconds (formally
+    # every 5 seconds), and the server responses
     #
     # client sends
     # {"type":"keep_alive"}
     #
     # server responds
     # {"ts":1379270870453,"type":"keep_alive"}
-    # TODO
-    #def kato_KEEP_ALIVE(self, message):
-    #    pass
+    def kato_KEEP_ALIVE(self, message):
+        self.chat.last_keep_alive_received = os.times()[4]
 
     # TODO
     #def kato_OFF_RECORD(self, message):
