@@ -4,9 +4,8 @@ KatIRC is an IRC gateway for Katō. This means that you can use your own IRC
 client. KatIRC will translate IRC commands from your client into Katō API
 calls and vice versa.
 
-Note that this is alpha quality software, at best. It was a quick hack
-project, not production quality software, although the author does use it
-almost every day.
+**Note:** this project is no longer active. When it was active, it was alpha
+quality software at best.
 
 ## Requirements
 
